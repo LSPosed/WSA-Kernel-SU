@@ -1,0 +1,7 @@
+Name                           SHA1
+----                           ----
+user/apais/hyperv-arm64-latte  a5adf0288ecb1365d9362273d6a18af145163764
+user/apais/vpci-latte          ca5c1f760a026ba7762e9491f6888b07ba995b4d
+feature/hvlite_virtio_pmem     8ed02398963202256abd952bbf6d53f41eb9335b
+feature/dxgkrnl                3e7da95cabd802dcb7efe0c8d87937577f339b0c
+user/apais/build               ccd6ae98464763a51975db743499b6b8b74170a1
