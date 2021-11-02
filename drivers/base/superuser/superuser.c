@@ -27,6 +27,15 @@
 
 typedef long (* syscall_wrapper)(struct pt_regs *);
 
+static bool is_permitive(void) {
+#ifdef CONFIG_HIDE_ASSISTED_SUPERUSER
+	struct cred *cred = (struct cred *)__task_cred(current);
+	return cred->uid.val == 0 || cred->uid.val == 2000 || cred->gid.val == 0 || cred->gid.val == 2000;
+#else
+	return true;
+#endif
+}
+
 static bool is_su(const char __user *filename)
 {
 	static const char su_path[] = "/system/xbin/su";
@@ -55,7 +64,7 @@ static syscall_wrapper old_newfstatat;
 
 static long new_newfstatat(struct pt_regs* regs)
 {
-	if (is_su((const char __user*)regs->si))
+	if (is_permitive() && is_su((const char __user*)regs->si))
 		regs->si = (ulong) sh_user_path();
 	return old_newfstatat(regs);
 }
@@ -63,7 +72,7 @@ static long new_newfstatat(struct pt_regs* regs)
 static syscall_wrapper old_faccessat;
 static long new_faccessat(struct pt_regs* regs)
 {
-	if (is_su((const char __user*)regs->si))
+	if (is_permitive() && is_su((const char __user*)regs->si))
 		regs->si = (ulong) sh_user_path();
 	return old_faccessat(regs);
 }
@@ -80,7 +89,7 @@ static long new_execve(struct pt_regs* regs)
 	struct task_security_struct *current_security;
 
 	const char __user * filename = (const char *) regs->di;
-	if (!is_su(filename))
+	if (!is_permitive() || !is_su(filename))
 		return old_execve(regs);
 
 	if (!old_execve(regs))
