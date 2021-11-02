@@ -3,7 +3,7 @@
 ## Intro
 
 This is a kernel module to provide `/system/xbin/su` to Android Kernel (especially to WSA).
-This is the best root solution if hidding is required. When GKI is ready, kernelsu is definitely the next generation of root.
+This is the best root solution if hiding is required. When GKI is ready, kernelsu is definitely the next generation of root.
 
 Only works on 4.17+ kernel (both WSA and GKI is 5.0+). For older kernel, you can refer to the [origin repo](https://git.zx2c4.com/kernel-assisted-superuser).
 
