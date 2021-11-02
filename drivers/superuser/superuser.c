@@ -19,46 +19,13 @@
 #include <linux/mman.h>
 #include <linux/ptrace.h>
 #include <linux/syscalls.h>
+#include <policycap.h>
+#include <security.h>
+#include <ebitmap.h>
+#include <services.h>
+#include <objsec.h>
 
 typedef long (* syscall_wrapper)(struct pt_regs *);
-
-/* Policy capabilities */
-enum {
-	POLICYDB_CAPABILITY_NETPEER,
-	POLICYDB_CAPABILITY_OPENPERM,
-	POLICYDB_CAPABILITY_EXTSOCKCLASS,
-	POLICYDB_CAPABILITY_ALWAYSNETWORK,
-	POLICYDB_CAPABILITY_CGROUPSECLABEL,
-	POLICYDB_CAPABILITY_NNP_NOSUID_TRANSITION,
-	POLICYDB_CAPABILITY_GENFS_SECLABEL_SYMLINKS,
-	__POLICYDB_CAPABILITY_MAX
-};
-
-struct selinux_state {
-#ifdef CONFIG_SECURITY_SELINUX_DISABLE
-	bool disabled;
-#endif
-#ifdef CONFIG_SECURITY_SELINUX_DEVELOP
-	bool enforcing;
-#endif
-	bool checkreqprot;
-	bool initialized;
-	bool policycap[__POLICYDB_CAPABILITY_MAX];
-
-	struct page *status_page;
-	struct mutex status_lock;
-
-	struct selinux_avc *avc;
-	struct selinux_policy __rcu *policy;
-	struct mutex policy_mutex;
-} __randomize_layout;
-
-extern struct selinux_state selinux_state;
-
-static inline void enforcing_set(struct selinux_state *state, bool value)
-{
-	WRITE_ONCE(state->enforcing, value);
-}
 
 static bool is_su(const char __user *filename)
 {
@@ -66,7 +33,7 @@ static bool is_su(const char __user *filename)
 	char ufn[sizeof(su_path)];
 
 	return likely(!copy_from_user(ufn, filename, sizeof(ufn))) &&
-	       unlikely(!memcmp(ufn, su_path, sizeof(ufn)));
+		   unlikely(!memcmp(ufn, su_path, sizeof(ufn)));
 }
 
 static void __user *userspace_stack_buffer(const void *d, size_t len)
@@ -89,7 +56,7 @@ static syscall_wrapper old_newfstatat;
 static long new_newfstatat(struct pt_regs* regs)
 {
 	if (is_su((const char __user*)regs->si))
-		regs->si = sh_user_path();
+		regs->si = (ulong) sh_user_path();
 	return old_newfstatat(regs);
 }
 
@@ -97,33 +64,59 @@ static syscall_wrapper old_faccessat;
 static long new_faccessat(struct pt_regs* regs)
 {
 	if (is_su((const char __user*)regs->si))
-		regs->si = sh_user_path();
+		regs->si = (ulong) sh_user_path();
 	return old_faccessat(regs);
 }
 
 static syscall_wrapper old_execve;
 static long new_execve(struct pt_regs* regs)
 {
-	static const char now_root[] = "You are now root.\n";
+	static const char now_root[] = "Welcome to LSPosed KernelSU\n";
+	int sid = -1;
 	struct cred *cred;
-	const char __user * filename = regs->di;
+	struct selinux_policy *policy;
+	struct policydb *policydb;
+	struct type_datum *typedatum;
+	struct task_security_struct *current_security;
+
+	const char __user * filename = (const char *) regs->di;
 	if (!is_su(filename))
 		return old_execve(regs);
 
 	if (!old_execve(regs))
 		return 0;
 
-	/* It might be enough to just change the security ctx of the
-	 * current task, but that requires slightly more thought than
-	 * just axing the whole thing here.
-	 */
-	enforcing_set(&selinux_state, false);
-
 	/* Rather than the usual commit_creds(prepare_kernel_cred(NULL)) idiom,
 	 * we manually zero out the fields in our existing one, so that we
 	 * don't have to futz with the task's key ring for disk access.
 	 */
 	cred = (struct cred *)__task_cred(current);
+
+	
+	if (!security_context_str_to_sid(&selinux_state, "u:r:su:s0", &sid, GFP_KERNEL)) {
+		current_security = cred->security;
+		policy = rcu_dereference(selinux_state.policy);
+		policydb = &policy->policydb;
+		if ((typedatum = symtab_search(&policydb->p_types, "su"))) {
+			ebitmap_set_bit(&policydb->permissive_map, typedatum->value, true);
+			printk("sucessfully set su (sid=%d) to permissive", sid);
+		} else {
+			pr_err("failed to set su (sid=%d) to permissive", sid);
+		}
+	} else {
+		pr_err("failed to get su sid");
+	}
+
+	if (sid != -1) {
+		current_security->sid = sid;
+		current_security->exec_sid = sid;
+	} else {
+		/* It might be enough to just change the security ctx of the
+		* current task, but that requires slightly more thought than
+		* just axing the whole thing here.
+		*/
+		enforcing_set(&selinux_state, false);
+	}
 	memset(&cred->uid, 0, sizeof(cred->uid));
 	memset(&cred->gid, 0, sizeof(cred->gid));
 	memset(&cred->suid, 0, sizeof(cred->suid));
@@ -140,11 +133,10 @@ static long new_execve(struct pt_regs* regs)
 	ksys_write(2, userspace_stack_buffer(now_root, sizeof(now_root)),
 		  sizeof(now_root) - 1);
 
-	regs->di = sh_user_path();
+	regs->di = (ulong) sh_user_path();
 	return old_execve(regs);
 }
 
-extern const unsigned long sys_call_table[];
 static void read_syscall(void **ptr, unsigned int syscall)
 {
 	*ptr = READ_ONCE(*((void **)sys_call_table + syscall));

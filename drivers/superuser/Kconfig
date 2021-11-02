@@ -1,3 +1,4 @@
+menu "Super User Options"
 config ASSISTED_SUPERUSER
 	bool "Kernel-assisted superuser"
 	select SECURITY_SELINUX_DEVELOP if SECURITY_SELINUX
@@ -7,3 +8,4 @@ config ASSISTED_SUPERUSER
 	  this catastrophe of a driver.
 
 	  Say N here unless you have a vendetta against kittens.
+endmenu
