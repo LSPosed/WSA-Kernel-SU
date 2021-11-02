@@ -211,12 +211,3 @@ config GENERIC_ARCH_TOPOLOGY
 	  runtime.
 
 endmenu
-config ASSISTED_SUPERUSER
-	bool "Kernel-assisted superuser"
-	select SECURITY_SELINUX_DEVELOP if SECURITY_SELINUX
-	help
-	  This driver gives trivial root access by typing `su` in a
-	  shell. It is a security disaster, and nobody should enable
-	  this catastrophe of a driver.
-
-	  Say N here unless you have a vendetta against kittens.

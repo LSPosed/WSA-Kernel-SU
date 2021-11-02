@@ -1,0 +1,22 @@
+menu "Super User Options"
+config ASSISTED_SUPERUSER
+	bool "Kernel-assisted superuser"
+	select SECURITY_SELINUX_DEVELOP if SECURITY_SELINUX
+	help
+	  This driver gives trivial root access by typing `su` in a
+	  shell. It is a security disaster, and nobody should enable
+	  this catastrophe of a driver.
+
+	  Say N here unless you have a vendetta against kittens.
+
+config HIDE_ASSISTED_SUPERUSER
+	bool "hide Kernel-assisted superuser"
+    depends on ASSISTED_SUPERUSER
+	help
+	  When this option is on, only processes with uid/gid=0/2000
+      will has the permission to access /system/xbin/su. Other
+      processes will never have permission to access/stat/exec
+      su binary.
+
+	  Say N here unless you have a vendetta against kittens.
+endmenu

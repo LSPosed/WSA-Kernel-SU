@@ -1694,8 +1694,6 @@ CONFIG_DMA_SHARED_BUFFER=y
 # CONFIG_DMA_FENCE_TRACE is not set
 # end of Generic Driver Options
 
-CONFIG_ASSISTED_SUPERUSER=y
-
 #
 # Bus devices
 #
@@ -3974,6 +3972,13 @@ CONFIG_NVMEM=y
 # CONFIG_INTERCONNECT is not set
 # CONFIG_COUNTER is not set
 # CONFIG_MOST is not set
+
+#
+# Super User Options
+#
+CONFIG_ASSISTED_SUPERUSER=y
+CONFIG_HIDE_ASSISTED_SUPERUSER=y
+# end of Super User Options
 # end of Device Drivers
 
 #

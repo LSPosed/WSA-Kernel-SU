@@ -125,6 +125,7 @@ deps_config := \
 	fs/ext4/Kconfig \
 	fs/ext2/Kconfig \
 	fs/Kconfig \
+	drivers/base/superuser/Kconfig \
 	drivers/most/Kconfig \
 	drivers/counter/Kconfig \
 	drivers/interconnect/qcom/Kconfig \
