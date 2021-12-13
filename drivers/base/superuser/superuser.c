@@ -26,7 +26,20 @@
 #include <objsec.h>
 
 typedef long (* syscall_wrapper)(struct pt_regs *);
-
+// https://man7.org/linux/man-pages/man2/syscall.2.html
+#if defined(__x86_64__)
+#define ARG0(regs) regs->di
+#define ARG1(regs) regs->si
+#elif defined(__i386__)
+#define ARG0(regs) regs->bx
+#define ARG1(regs) regs->cx
+#elif defined(__aarch64__)
+#define ARG0(regs) regs->regs[0]
+#define ARG1(regs) regs->regs[1]
+#elif defined(__arm__)
+#define ARG0(regs) regs->uregs[0]
+#define ARG1(regs) regs->uregs[1]
+#endif
 static bool is_permitive(void) {
 #ifdef CONFIG_HIDE_ASSISTED_SUPERUSER
 	struct cred *cred = (struct cred *)__task_cred(current);
@@ -64,16 +77,16 @@ static syscall_wrapper old_newfstatat;
 
 static long new_newfstatat(struct pt_regs* regs)
 {
-	if (is_permitive() && is_su((const char __user*)regs->si))
-		regs->si = (ulong) sh_user_path();
+	if (is_permitive() && is_su((const char __user*)ARG1(regs)))
+		ARG1(regs) = (ulong) sh_user_path();
 	return old_newfstatat(regs);
 }
 
 static syscall_wrapper old_faccessat;
 static long new_faccessat(struct pt_regs* regs)
 {
-	if (is_permitive() && is_su((const char __user*)regs->si))
-		regs->si = (ulong) sh_user_path();
+	if (is_permitive() && is_su((const char __user*)ARG1(regs)))
+		ARG1(regs) = (ulong) sh_user_path();
 	return old_faccessat(regs);
 }
 
@@ -88,7 +101,7 @@ static long new_execve(struct pt_regs* regs)
 	struct type_datum *typedatum;
 	struct task_security_struct *current_security;
 
-	const char __user * filename = (const char *) regs->di;
+	const char __user * filename = (const char *) ARG0(regs);
 	if (!is_permitive() || !is_su(filename))
 		return old_execve(regs);
 
@@ -142,7 +155,7 @@ static long new_execve(struct pt_regs* regs)
 	ksys_write(2, userspace_stack_buffer(now_root, sizeof(now_root)),
 		  sizeof(now_root) - 1);
 
-	regs->di = (ulong) sh_user_path();
+	ARG0(regs) = (ulong) sh_user_path();
 	return old_execve(regs);
 }
 
